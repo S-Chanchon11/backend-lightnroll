@@ -4,6 +4,8 @@
 
 # The Cloud Functions for Firebase SDK to create Cloud Functions and set up triggers.
 import json
+
+import librosa
 from firebase_functions import firestore_fn, https_fn
 
 # The Firebase Admin SDK to access Cloud Firestore.
@@ -38,38 +40,38 @@ To deploy serverless
 """
 
 
-@https_fn.on_request()
-def on_request_example(req: https_fn.Request) -> https_fn.Response:
-    return https_fn.Response("Hello world!")
+# @https_fn.on_request()
+# def on_request_example(req: https_fn.Request) -> https_fn.Response:
+#     return https_fn.Response("Hello world!")
 
 
-@firestore_fn.on_document_created(document="messages/{pushId}")
-def makeuppercase(
-    event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None],
-    isToggleEnable: bool,
-) -> None:
-    """Listens for new documents to be added to /messages. If the document has
-    an "original" field, creates an "uppercase" field containg the contents of
-    "original" in upper case."""
-
-    isToggleEnable = False
-
-    if isToggleEnable:
-        # Get the value of "original" if it exists.
-        if event.data is None:
-            return
-        try:
-            original = event.data.get("original")
-        except KeyError:
-            # No "original" field, so do nothing.
-            return
-
-        # Set the "uppercase" field.
-        print(f"Uppercasing {event.params['pushId']}: {original}")
-        upper = original.upper()
-        event.data.reference.update({"uppercase": upper})
-    else:
-        return https_fn.Response(f"{__name__} is disabled", status=500)
+# @firestore_fn.on_document_created(document="messages/{pushId}")
+# def makeuppercase(
+#     event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None],
+#     isToggleEnable: bool,
+# ) -> None:
+#     """Listens for new documents to be added to /messages. If the document has
+#     an "original" field, creates an "uppercase" field containg the contents of
+#     "original" in upper case."""
+#
+#     isToggleEnable = False
+#
+#     if isToggleEnable:
+#         # Get the value of "original" if it exists.
+#         if event.data is None:
+#             return
+#         try:
+#             original = event.data.get("original")
+#         except KeyError:
+#             # No "original" field, so do nothing.
+#             return
+#
+#         # Set the "uppercase" field.
+#         print(f"Uppercasing {event.params['pushId']}: {original}")
+#         upper = original.upper()
+#         event.data.reference.update({"uppercase": upper})
+#     else:
+#         return https_fn.Response(f"{__name__} is disabled", status=500)
 
 
 @https_fn.on_request()
@@ -115,7 +117,6 @@ def read_database_on_cloud_function(req: https_fn.Request) -> https_fn.Response:
 
 @https_fn.on_request()
 def read_database_on_realtime_database(req: https_fn.Request) -> https_fn.Response:
-
 
     ref = db.reference("/all-chords")
     
