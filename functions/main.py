@@ -128,8 +128,7 @@ def read_database_on_realtime_database(req: https_fn.Request) -> https_fn.Respon
 
 @https_fn.on_request()
 def pitch_dection():
-    #filename = ''
+
     filename = librosa.ex('trumpet')
     y, sr = librosa.load(filename)
     print(y)
-   
