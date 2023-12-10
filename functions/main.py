@@ -16,6 +16,8 @@ from firebase_admin import db
 from firebase_admin import credentials
 import logging
 
+from functions.app.main_app import PreAudioProcess
+
 cred = credentials.Certificate(
     "/Users/celeven/Documents/MUIC/lightnroll-11-firebase-adminsdk-ic5jr-e24b4b8f17.json"
 )
@@ -31,7 +33,8 @@ logger = logging.getLogger()
 
 """
 To deploy serverless
-0.Locally -> $ firebase emulators:start
+0.firebase init functions
+0.firebase emulators:start
 
 1.firebase deploy --only functions
 
@@ -40,9 +43,9 @@ To deploy serverless
 """
 
 
-# @https_fn.on_request()
-# def on_request_example(req: https_fn.Request) -> https_fn.Response:
-#     return https_fn.Response("Hello world!")
+@https_fn.on_request()
+def on_request_example(req: https_fn.Request) -> https_fn.Response:
+    return https_fn.Response("Hello world!")
 
 
 # @firestore_fn.on_document_created(document="messages/{pushId}")
@@ -126,9 +129,15 @@ def read_database_on_realtime_database(req: https_fn.Request) -> https_fn.Respon
 
     return doc
 
+
 @https_fn.on_request()
 def pitch_dection():
 
-    filename = librosa.ex('trumpet')
-    y, sr = librosa.load(filename)
-    print(y)
+    prep_audio = PreAudioProcess()
+
+    note = prep_audio.pitch_detector(hz='328.0')
+
+    return note
+
+
+
