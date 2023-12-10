@@ -1,8 +1,8 @@
 import librosa
 import os
 import numpy as np
-from utils.Utility import ModuleUtils
-from utils.LoggerUtils import LogUtils
+from .modules.Utility import ModuleUtils
+from .modules.LoggerUtils import LogUtils
 
 
 log = LogUtils()

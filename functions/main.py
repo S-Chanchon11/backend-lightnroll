@@ -5,7 +5,6 @@
 # The Cloud Functions for Firebase SDK to create Cloud Functions and set up triggers.
 import json
 
-import librosa
 from firebase_functions import firestore_fn, https_fn
 
 # The Firebase Admin SDK to access Cloud Firestore.
@@ -16,7 +15,7 @@ from firebase_admin import db
 from firebase_admin import credentials
 import logging
 
-from functions.app.main_app import PreAudioProcess
+from app.main_app import PreAudioProcess
 
 cred = credentials.Certificate(
     "/Users/celeven/Documents/MUIC/lightnroll-11-firebase-adminsdk-ic5jr-e24b4b8f17.json"
