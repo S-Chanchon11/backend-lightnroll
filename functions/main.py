@@ -122,15 +122,13 @@ def read_database_on_realtime_database(req: https_fn.Request) -> https_fn.Respon
 
     ref = db.reference("/all-chords")
     
-    for a in ref:
-        x = ref.child(a)
-        doc = x.get()
+    doc = ref.child('C').get()
 
     return doc
 
 
 @https_fn.on_request()
-def pitch_dection():
+def pitch_dection(req: https_fn.Request) -> https_fn.Response:
 
     prep_audio = PreAudioProcess()
 
