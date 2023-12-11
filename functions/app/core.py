@@ -1,19 +1,19 @@
 import librosa
 import os
 import numpy as np
-from .modules.Utility import ModuleUtils
-from .modules.LoggerUtils import LogUtils
+from tuner.Tuner import Tuner
+from utils.LoggerUtils import LogUtils
 
 
 log = LogUtils()
-utils = ModuleUtils()
+tuner = Tuner()
 
 class PreAudioProcess:
     
 
     def pitch_detector(self, hz):
 
-        detected_note = utils.frequency_to_note(frequency=hz)
+        detected_note = tuner.frequency_to_note(frequency=hz)
 
         return detected_note
 
@@ -22,7 +22,7 @@ class PreAudioProcess:
 
         note_freq_set = [330.0, 247.0, 196.0, 147.0, 110.0, 82.0]
 
-        note_list = [utils.frequency_to_note(frequency=x) for x in note_freq_set]
+        note_list = [tuner.frequency_to_note(frequency=x) for x in note_freq_set]
 
         return note_list
 

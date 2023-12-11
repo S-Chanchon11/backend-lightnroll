@@ -66,3 +66,12 @@ node_modules/
 .venv
 venv
 functions/venv
+functions/app/modules/__pycache__/__init__.cpython-311.pyc
+functions/app/modules/__pycache__/LoggerUtils.cpython-311.pyc
+functions/app/modules/__pycache__/Utility.cpython-311.pyc
+functions/app/__pycache__/main_app.cpython-311.pyc
+functions/app/__pycache__/core.cpython-311.pyc
+functions/app/__pycache__/app.cpython-311.pyc
+functions/app/__pycache__/__init__.cpython-311.pyc
+functions/__pycache__/main.cpython-311.pyc
+functions/__pycache__/main.cpython-311.pyc

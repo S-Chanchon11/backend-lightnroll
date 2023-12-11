@@ -15,20 +15,20 @@ from firebase_admin import db
 from firebase_admin import credentials
 import logging
 
-from app.main_app import PreAudioProcess
+from app.core import PreAudioProcess
+from app.utils.CONSTANTS import CERTIFICATE, DB_URL
 
 cred = credentials.Certificate(
-    "/Users/celeven/Documents/MUIC/lightnroll-11-firebase-adminsdk-ic5jr-e24b4b8f17.json"
-)
+    CERTIFICATE
+    )
 
 firebase_admin.initialize_app(
     cred,
     {
-        "databaseURL": "https://lightnroll-11-default-rtdb.asia-southeast1.firebasedatabase.app"
+        "databaseURL": DB_URL
     },
 )
 
-logger = logging.getLogger()
 
 """
 To deploy serverless
