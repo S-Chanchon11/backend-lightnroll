@@ -15,8 +15,8 @@ from firebase_admin import db
 from firebase_admin import credentials
 import logging
 
-from app.core import PreAudioProcess
 from app.utils.CONSTANTS import CERTIFICATE, DB_URL
+from app.tuner.Tuner import Tuner
 
 cred = credentials.Certificate(
     CERTIFICATE
@@ -76,45 +76,45 @@ def on_request_example(req: https_fn.Request) -> https_fn.Response:
 #         return https_fn.Response(f"{__name__} is disabled", status=500)
 
 
-@https_fn.on_request()
-def upload_data_to_database(req: https_fn.Request) -> https_fn.Response:
-    # Grab the text parameter.
-    variant = req.args.get("variant")
-    if variant is None:
-        return https_fn.Response("No text parameter provided", status=400)
+# @https_fn.on_request()
+# def upload_data_to_database(req: https_fn.Request) -> https_fn.Response:
+#     # Grab the text parameter.
+#     variant = req.args.get("variant")
+#     if variant is None:
+#         return https_fn.Response("No text parameter provided", status=400)
 
-    firestore_client: google.cloud.firestore.Client = firestore.client()
+#     firestore_client: google.cloud.firestore.Client = firestore.client()
 
-    with open(variant + ".json", "r", encoding="utf-8") as output:
-        jsonObj = list(output)
+#     with open(variant + ".json", "r", encoding="utf-8") as output:
+#         jsonObj = list(output)
 
-    for obj in jsonObj:
-        # Parse the JSON data
-        parsed_data = json.loads(obj)
-        # Access the values
-        for key, value in parsed_data.items():
-            for chord_data in value:
-                pos = chord_data["positions"]
-                finger = chord_data["fingerings"]
-                _, doc_ref = firestore_client.collection("chord").add
-                ({key: {"position": pos, "fingerings": [finger]}})
-    return https_fn.Response(f"Message with ID {doc_ref.id} added.")
+#     for obj in jsonObj:
+#         # Parse the JSON data
+#         parsed_data = json.loads(obj)
+#         # Access the values
+#         for key, value in parsed_data.items():
+#             for chord_data in value:
+#                 pos = chord_data["positions"]
+#                 finger = chord_data["fingerings"]
+#                 _, doc_ref = firestore_client.collection("chord").add
+#                 ({key: {"position": pos, "fingerings": [finger]}})
+#     return https_fn.Response(f"Message with ID {doc_ref.id} added.")
 
 
-@https_fn.on_request()
-def read_database_on_cloud_function(req: https_fn.Request) -> https_fn.Response:
-    db: google.cloud.firestore.Client = firestore.client()
+# @https_fn.on_request()
+# def read_database_on_cloud_function(req: https_fn.Request) -> https_fn.Response:
+#     db: google.cloud.firestore.Client = firestore.client()
 
-    doc_ref = db.collection("chord-data").document("C-major")
+#     doc_ref = db.collection("chord-data").document("C-major")
 
-    doc = doc_ref.get()
+#     doc = doc_ref.get()
 
-    if doc.exists:
-        print(f"Document data: {doc.to_dict()}")
-    else:
-        print("No such document!")
+#     if doc.exists:
+#         print(f"Document data: {doc.to_dict()}")
+#     else:
+#         print("No such document!")
 
-    return https_fn.Response(f"Get Chord with ID {doc_ref.id}.")
+#     return https_fn.Response(f"Get Chord with ID {doc_ref.id}.")
 
 
 @https_fn.on_request()
@@ -127,14 +127,27 @@ def read_database_on_realtime_database(req: https_fn.Request) -> https_fn.Respon
     return doc
 
 
+# @POST 
+# /function?freq=
 @https_fn.on_request()
-def pitch_dection(req: https_fn.Request) -> https_fn.Response:
+def pitch_detection(req: https_fn.Request) -> https_fn.Response:
 
-    prep_audio = PreAudioProcess()
+    hz = req.args.get("freq")
+    if hz is None:
+        return https_fn.Response("No parameter provided", status=400)
+    else:
+        tuner = Tuner()
 
-    note = prep_audio.pitch_detector(hz='328.0')
+        hz = float(hz)
 
-    return note
+        note = tuner.frequencyToNote(frequency=hz)
+
+        return https_fn.Response(note)
+    
+        
+
+    
+        
 
 
 
