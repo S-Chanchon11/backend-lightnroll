@@ -67,3 +67,6 @@ node_modules/
 venv
 functions/venv
 __pycache__/
+
+
+functions/app/ml/guitar_chord
