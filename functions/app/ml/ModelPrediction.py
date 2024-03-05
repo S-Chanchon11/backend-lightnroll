@@ -1,85 +1,59 @@
-import json
 import pickle
-import numpy as np
-from sklearn.ensemble import AdaBoostClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.svm import SVC
-from sklearn.tree import DecisionTreeClassifier
-
-DATA_PATH = "data_maj_chord_v1.json"
-TEST_PATH = "test.json"
-MODEL = 'model.sav'
-
-def load_data(data_path):
-    """Loads training dataset from json file.
-        :param data_path (str): Path to json file containing data
-        :return X (ndarray): Inputs
-        :return y (ndarray): Targets
-    """
-
-    with open(data_path, "r") as fp:
-        data = json.load(fp)
-
-    X = np.array(data["pitch"])
-    y = np.array(data["labels"])
-    z = np.array(data["mapping"])
-    return X, y,z
-
-def predict_model():
-
-    X, y, z = load_data(DATA_PATH)
-
-    X_test, y_test, z_test = load_data(TEST_PATH)
-
-    model_svc_rbf=SVC(kernel='rbf')
-    model_knn = KNeighborsClassifier(n_neighbors=3)
-    model_ada=AdaBoostClassifier(n_estimators=200,learning_rate=2)
-    model_dt=DecisionTreeClassifier()
-    model_svc_lin=SVC(kernel='linear')
-    model_svc_rbf=SVC(kernel='rbf')
-
-    model_knn.fit(X, y)
-    model_ada.fit(X, y)
-    model_dt.fit(X, y)
-    model_svc_lin.fit(X, y)
-    model_svc_rbf.fit(X, y)
-    y_pred_knn = model_knn.predict(X_test)
-    y_pred_ada = model_ada.predict(X_test)
-    y_pred_dt = model_dt.predict(X_test)
-    y_pred_svm_lin = model_svc_lin.predict(X_test)
-    y_pred_svm_rbf = model_svc_rbf.predict(X_test)
-    print("KNN: ")
-    for i in range(len(X_test)):
-        print(z[y_pred_knn[i]],end=' ' )
-    print("\nAdaboost: ")
-    for i in range(len(X_test)):
-        print(z[y_pred_ada[i]],end=' ' )
-    print("\nDecision tree: ")
-    for i in range(len(X_test)):
-        print(z[y_pred_dt[i]],end=' ' )
-    print("\nSVM rbf: ")
-    for i in range(len(X_test)):
-        print(z[y_pred_svm_rbf[i]],end=' ' )
-    print("\nSVM linear: ")
-    for i in range(len(X_test)):
-        print(z[y_pred_svm_lin[i]],end=' ' )
-
-def predict_SVM():
-   
-    X, y, z = load_data(DATA_PATH)
-    X_test, Y_test, z_test = load_data(TEST_PATH)
-    loaded_model = pickle.load(open(MODEL, 'rb'))
-    result = loaded_model.predict(X_test)
-    
-    for i in range(len(X_test)):
-        print(z[result[i]],end='')
-
-def function_tester():
-
-    X, y,z = load_data(DATA_PATH)
-    print(z)
+from ModelMaster import KNN, SVM
+from CNN import CNN
+from Utilities import Utilities
 
 if __name__ == "__main__":
-    # predict_model()
-    predict_SVM()
-    # function_tester()
+
+    utils = Utilities()
+    cnn = CNN()
+    knn = KNN()
+    svm = SVM()
+
+    DATA_PATH = "data_enhance_ver_1.json"
+
+    X_train, y_train, z_train = utils.prepare_data(DATA_PATH)
+   
+    knn.KNN(
+        save_path="knn_model.h5",
+        X=X_train,
+        y=y_train,
+        n_neighbors=5
+    )
+
+    # X_train, y_train, z_train = utils.prepare_data_for_cnn(DATA_PATH)
+    # cnn.CNN(
+    #     save_path="cnn_model.h5",
+    #     X=X_train,
+    #     y=y_train,
+    #     epochs=30,
+    #     batch_size=32,
+    #     patience=5,
+    #     learning_rate=0.001
+    # )
+
+    KNN_MODEL = "knn_model.h5"
+    CNN_MODEL = "cnn_model.h5"
+
+    TEST_PATH = "test_Am.json"
+    X_test, y_test, z_test = utils.prepare_data(TEST_PATH)
+
+    svm.SVM(
+        X=X_train,
+        y=y_train,
+        z=z_train,
+        X_test=X_test
+    )
+
+    knn_model = pickle.load(open(KNN_MODEL, 'rb'))
+    cnn_model = pickle.load(open(CNN_MODEL, 'rb'))
+
+    utils.predict_chord(knn_model,X_test=X_test,y_test=y_test,z=z_train)
+
+    X_test, y_test, z_test = utils.prepare_data_for_cnn(TEST_PATH)
+    
+    cnn.predict_chord(cnn_model,X_test=X_test)
+    
+
+
+    

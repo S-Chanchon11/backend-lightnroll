@@ -1,10 +1,11 @@
+import json
 import librosa
 import tensorflow as tf
 import numpy as np
 import pickle
 
 SAMPLES_TO_CONSIDER = 22050
-MODEL_PATH = "model.keras"
+MODEL_PATH = "model.h5"
 
 class _ChordDection:
     model = None
@@ -21,23 +22,42 @@ class _ChordDection:
     _instance = None
 
     def predict(self, file_path):
-            """
+        """
+        :param file_path (str): Path to audio file to predict
+        :return predicted_chord (str): Keyword predicted by the model
+        """
 
-            :param file_path (str): Path to audio file to predict
-            :return predicted_chord (str): Keyword predicted by the model
-            """
+        # extract MFCC
+        MFCCs = self.preprocess(file_path)
 
-            # extract MFCC
-            MFCCs = self.preprocess(file_path)
+        # we need a 4-dim array to feed to the model for prediction: (# samples, # time steps, # coefficients, 1)
+        MFCCs = MFCCs[np.newaxis, ..., np.newaxis]
 
-            # we need a 4-dim array to feed to the model for prediction: (# samples, # time steps, # coefficients, 1)
-            MFCCs = MFCCs[np.newaxis, ..., np.newaxis]
+        # get the predicted label
+        predictions = self.model.predict(MFCCs)
+        predicted_index = np.argmax(predictions)
+        predicted_chord = self._mapping[predicted_index]
+        
+        return predicted_chord
+    
+    
+    def predict_chord(self, data_path):
+        """Loads training dataset from json file.
+        :param data_path (str): Path to json file containing data
+        :return X (ndarray): Inputs
+        :return y (ndarray): Targets
+        """
 
-            # get the predicted label
-            predictions = self.model.predict(MFCCs)
-            predicted_index = np.argmax(predictions)
-            predicted_chord = self._mapping[predicted_index]
-            return predicted_chord
+        with open(data_path, "r") as fp:
+            data = json.load(fp)
+
+        X = np.array(data["pitch"])
+        y = np.array(data["labels"])
+        z = np.array(data["mapping"])
+
+        return X, y,z
+
+         
 
 
     def preprocess(self, file_path, num_mfcc=13, n_fft=2048, hop_length=512):
@@ -88,5 +108,5 @@ if __name__ == "__main__":
     assert cds is cds1
 
     # make a prediction
-    chord = cds.predict("/Users/snow/backend-lightnroll/functions/app/ml/guitar_chord/c_maj.wav")
+    chord = cds.predict("/Users/snow/backend-lightnroll/functions/app/ml/guitar_chord/Test1/G/G_WESTFIELD_1_weak.wav")
     print(f"Recognize : {chord}")

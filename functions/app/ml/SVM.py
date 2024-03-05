@@ -5,26 +5,6 @@ from sklearn import metrics
 from sklearn.svm import SVC
 import pickle
 
-DATA_PATH = "data_maj_chord_v1.json"
-
-
-def load_data(data_path):
-    """Loads training dataset from json file.
-        :param data_path (str): Path to json file containing data
-        :return X (ndarray): Inputs
-        :return y (ndarray): Targets
-    """
-
-    with open(data_path, "r") as fp:
-        data = json.load(fp)
-
-    X = np.array(data["pitch"])
-    y = np.array(data["labels"])
-    z = np.array(data["mapping"])
-    return X, y, z
-
-# get train, validation, test splits
-X, y, z = load_data(DATA_PATH)
 
 rounds= 1000
 Acc_lin_avg=0

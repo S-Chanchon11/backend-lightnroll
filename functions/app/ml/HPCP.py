@@ -448,11 +448,9 @@ def myhpcp(audio_path, fref):
     
     1. normal
     2. slow
-    3. fast
-    4. each string
-    5. reverse normal
-    6. reverse slow
-    7. reverse fast
+    3. reverse normal
+    4. reverse slow
+    5. each string
     
     """
     y, sr = librosa.load(audio_path)
