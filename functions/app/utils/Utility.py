@@ -53,6 +53,8 @@ class DataFormatter:
                     time.sleep(2)
 
 
+
+
 def main():
 
     DF = DataFormatter(filename="all-chord.json")

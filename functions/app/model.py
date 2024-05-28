@@ -5,7 +5,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPClassifier
 
 
-class Saturn():
+class Model():
 
     def chord_detection_model(self):
         file_path = self.getCurrentDirectory()
