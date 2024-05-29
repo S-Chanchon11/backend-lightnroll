@@ -4,6 +4,7 @@
 
 # The Cloud Functions for Firebase SDK to create Cloud Functions and set up triggers.
 
+import json
 from math import log2
 import pickle
 import sys
@@ -20,10 +21,8 @@ from firebase_functions import firestore_fn, https_fn
 import audiosegment
 # The Firebase Admin SDK to access Cloud Firestore.
 # from firebase_admin import initialize_app, firestore
-import google.cloud.firestore
 import firebase_admin
-from firebase_admin import db
-from firebase_admin import credentials, storage
+from firebase_admin import db, credentials, storage, firestore
 
 from app.utils.CONSTANTS import CERTIFICATE, DB_URL
 from app.tuner.Tuner import Tuner
@@ -53,8 +52,10 @@ http://127.0.0.1:5001/lightnroll-11/us-central1/main?path=audio/G_E_1.wav
 
 ref = db.reference("/all-chords")
 getData = ref.get()
-new_ref = db.reference("/audio_feature")
-new_node = new_ref.child("sr")
+audio_feature_ref = db.reference("/audio_feature")
+ml_ref = db.reference("/ml_predict")
+# db_firestore = firestore.Client()
+firestore_client: firestore.Client = firestore.client()
 
 @https_fn.on_request()
 def on_request_example(req: https_fn.Request) -> https_fn.Response:
@@ -62,10 +63,47 @@ def on_request_example(req: https_fn.Request) -> https_fn.Response:
 
 @https_fn.on_request()
 def read_database_on_realtime_database(req: https_fn.Request):
-    get_new_ref = new_node.get()
+    get_new_ref = audio_feature_ref.get()
     # ref = db.reference("/all-chords")
     return get_new_ref
 
+@https_fn.on_request()
+def read_firestore(req: https_fn.Request):
+    users_ref = firestore_client.collection("a")
+    docs = users_ref.stream()
+    for doc in docs:
+        print(f"{doc.id} => {doc.to_dict()}")
+    # ref = db.reference("/all-chords")
+    return "done"
+
+
+def write_to_firestore(json_data):
+    
+    jsonObj = {
+        "uuid" : "19e7Ml7rNIXvJbl0QgIpNoyftUZ2",
+        "prediction" : str(json_data)
+    }
+
+    send_data = firestore_client.collection("prediction").document("a11")
+    send_data.set(jsonObj)
+    
+
+def getAudioFeature_collection():
+    
+    # Fetch all users data
+    users_data = audio_feature_ref.get()
+
+    # Iterate through users to find the specific userId
+    for user in users_data:
+        if user['uuid'] == '19e7Ml7rNIXvJbl0QgIpNoyftUZ2':
+            return user
+
+def getAudioFeature(data):
+    # get_audio_feature = audio_feature_ref.get()
+    y = data["y"]
+    sr = data["sr"]
+    # ref = db.reference("/all-chords")
+    return y,sr
 # @https_fn.on_request()
 # def get_wav(req: https_fn.Request):
 
@@ -120,11 +158,11 @@ def extract_audio_features(buffer):
 
     return y,sr
 
-def get_audio_feat():
+# def get_audio_feat():
 
-    get_new_ref = new_ref.get("sr")
-    # ref = db.reference("/all-chords")
-    return get_new_ref
+#     get_new_ref = new_ref.get("sr")
+#     # ref = db.reference("/all-chords")
+#     return get_new_ref
 
 def onset_filter(onset_array):
     onset_array  = onset_array.tolist()
@@ -145,7 +183,7 @@ def onset_filter(onset_array):
     
 # @https_fn.on_request()
 def get_onset_times(y,sr):
-
+    
     o_env = librosa.onset.onset_strength(y=y, sr=sr)
     times = librosa.times_like(o_env, sr=sr)
     onset_frames = librosa.onset.onset_detect(onset_envelope=o_env,sr=sr)
@@ -154,25 +192,29 @@ def get_onset_times(y,sr):
 
     return timeList
 
-def trim_audio(y,sr,cut_points, output_file_path="output"):
+def trim_audio(y,sr,cut_points):
     # load the audio file
     audio = audiosegment.from_numpy_array(y,sr)
     cut_duration = 1 * 1000
+    time_series = []
     # iterate over the list of time intervals
     for i, cut_points in enumerate(cut_points):
         start_time = int(cut_points * 1000)
         end_time = start_time + cut_duration
         end_time = min(end_time,len(audio))
         chunk  = audio[start_time:end_time]
+        _sample_rate = chunk.frame_rate
+        time_series.append(chunk.to_numpy_array())
+        # sample_rates = [segment.frame_rate for segment in trimmed]
         # construct the output file path
     
-    return chunk
+    return time_series, _sample_rate
         # output_file_path_i = f"{output_file_path}_{i}.wav"
         # export the segment to a file
         # chunk.export(output_file_path_i, format="wav")
         # url = "gs://lightnroll-11.appspot.com/audio/" + output_file_path_i
 @https_fn.on_request()
-def write_to_realtimeDB(req: https_fn.Request) -> https_fn.Response:
+def write_audio_to_realtimeDB(req: https_fn.Request) -> https_fn.Response:
 
     y = [
     0.0155944824,
@@ -4308,10 +4350,16 @@ def write_to_realtimeDB(req: https_fn.Request) -> https_fn.Response:
     sr = "44100"
     # ref = db.reference('audio_feature')
     # user_ref = ref.child('_uid')
-    new_ref.set({
-        'y': y,
-        'sr': sr
-    })
+    jsonobj = {
+        "audio_feature" : [
+             {
+                "uuid" : "19e7Ml7rNIXvJbl0QgIpNoyftUZ2",
+                "sr" : sr,
+                "y" : y
+             }     
+        ]
+    }
+    audio_feature_ref.set(jsonobj)
     # ref = db.reference("/all-chords")
     return https_fn.Response("UPLOAD DONE")
 #     doc = ref.child('C').get()
@@ -4337,9 +4385,8 @@ def upload_audio_to_firebase(req: https_fn.Request)-> https_fn.Response:
     print(f"File {file_path} uploaded to {destination_blob_name}.")
     print(f"Public URL: {blob.public_url}")
 
-def pcp(audio_path, fref=261.63):
+def pcp(y,sr, fref=261.63):
 
-    y, sr = librosa.load(audio_path)
     fft_val = np.fft.fft(y)
 
     N = len(fft_val)
@@ -4363,27 +4410,46 @@ def pcp(audio_path, fref=261.63):
         pcp_norm[p] = pcp[p] / sum(pcp)
 
     return list(pcp_norm)
+def write_audio_to_realtimeDB(result):
+
+    ml_ref.set(result)
+    # ref = db.reference("/all-chords")
+    return https_fn.Response("UPLOAD DONE")
 
 @https_fn.on_request()
 def main(req: https_fn.Request) -> https_fn.Response:
 
-    path = req.args.get("path")
-    buffer = get_wav_in_bytes(path)
-    y, sr = extract_audio_features(buffer)
-    cut_points = get_onset_times(y=y,sr=sr,path=path)
-    trim_audio(y,sr,cut_points, output_file_path="out")
+    # uuid = req.args.get("id")
+    # buffer = get_wav_in_bytes(path)
+    # y, sr = extract_audio_features(buffer)
+
+    result = getAudioFeature_collection()
+
+    y,sr = getAudioFeature(result)
+    sr=int(sr)
+    y=np.array(y,dtype='float32')
+    cut_points = get_onset_times(y=y,sr=sr)
+    new_y, new_sr = trim_audio(y,sr,cut_points)
+    prediction_result = []
+
+    for i in range(len(new_y)):
+        new_pcp = pcp(y=new_y[i],sr=new_sr)
+        prediction_result.append(str(predict(data=new_pcp)))
+    
+    # write_to_firestore(json.dumps(jsonObj))
+    write_to_firestore(prediction_result)
+
+    return https_fn.Response("Done")
 
 
-    return https_fn.Response("done")
 
 
 
-@https_fn.on_request()
-def predict(req: https_fn.Request) -> https_fn.Response:
+# @https_fn.on_request()
+def predict(data):
 
-    X_test = req.get_json()
 
-    X = np.array(X_test["pitch"]).reshape(1, -1)
+    X = np.array(data).reshape(1, -1)
 
     model = pickle.load(open("ann_i_v3.h5", "rb"))
 
@@ -4391,4 +4457,4 @@ def predict(req: https_fn.Request) -> https_fn.Response:
 
     result = model.predict(X)
 
-    return jsonify({"chord": str(mapping[int(result)])})
+    return str(mapping[int(result)])
