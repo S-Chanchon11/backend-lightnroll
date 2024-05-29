@@ -5,14 +5,17 @@
 # The Cloud Functions for Firebase SDK to create Cloud Functions and set up triggers.
 
 import pickle
+import sys
 from aubio import source, onset
-from flask import jsonify, request
+from flask import jsonify
 import librosa
 import numpy as np
 from pydub import AudioSegment
-
-
+import soundfile as sf
+import io
+import json
 from firebase_functions import firestore_fn, https_fn
+
 # The Firebase Admin SDK to access Cloud Firestore.
 from firebase_admin import initialize_app, firestore
 import google.cloud.firestore
@@ -23,22 +26,17 @@ from firebase_admin import credentials, storage
 from app.utils.CONSTANTS import CERTIFICATE, DB_URL
 from app.tuner.Tuner import Tuner
 
-cred = credentials.Certificate(
-    CERTIFICATE
-    )
+cred = credentials.Certificate(CERTIFICATE)
 
 firebase_admin.initialize_app(
-    cred,
-    {
-        "databaseURL": DB_URL
-    },
+    cred, {"storageBucket": "lightnroll-11.appspot.com", "databaseURL": DB_URL}
 )
 
 bucket = storage.bucket()
 # storage = firebase
 
 """
-To deploy serverless
+To deploy local
 0.firebase init functions
 0.firebase emulators:start
 
@@ -53,89 +51,124 @@ To deploy serverless
 def on_request_example(req: https_fn.Request) -> https_fn.Response:
     return https_fn.Response("Hello world!")
 
-# gs://lightnroll-11.appspot.com/audio/out_1.wav
-
-
 # @https_fn.on_request()
 # def read_database_on_realtime_database(req: https_fn.Request) -> https_fn.Response:
 
 #     ref = db.reference("/all-chords")
-    
+
 #     doc = ref.child('C').get()
 
 #     return doc
 
-
-# @POST 
-# /function?freq=
 # @https_fn.on_request()
-# def pitch_detection(req: https_fn.Request) -> https_fn.Response:
+# def get_wav(req: https_fn.Request):
 
-#     hz = req.args.get("freq")
-#     if hz is None:
-#         return https_fn.Response("No parameter provided", status=400)
-#     else:
-#         tuner = Tuner()
+def get_wav_in_bytes(path):
+    # http://127.0.0.1:5001/lightnroll-11/us-central1/get_wav?path=audio/out_1.wav
+    # path = req.args.get("path")
+    np.set_printoptions(threshold=sys.maxsize)
+    
+    if path is None:
+        return https_fn.Response("No parameter provided", status=400)
+    else:
+        
+        blob = bucket.blob(path)
+        audio_bytes = blob.download_as_bytes()
+        audio_buffer = io.BytesIO(audio_bytes)
 
-#         hz = float(hz)
+        return audio_buffer
+    
+def get_wav_y(path):
+    # http://127.0.0.1:5001/lightnroll-11/us-central1/get_wav?path=audio/out_1.wav
+    # path = req.args.get("path")
+    np.set_printoptions(threshold=sys.maxsize)
+    
+    if path is None:
+        return https_fn.Response("No parameter provided", status=400)
+    else:
+        
+        blob = bucket.blob(path)
+        audio_bytes = blob.download_as_bytes()
+        audio_buffer = io.BytesIO(audio_bytes)
+        y, sr = librosa.load(audio_buffer)
 
-#         note = tuner.frequencyToNote(frequency=hz)
+        return y
+def get_wav_sr(path):
+    # http://127.0.0.1:5001/lightnroll-11/us-central1/get_wav?path=audio/out_1.wav
+    # path = req.args.get("path")
+    np.set_printoptions(threshold=sys.maxsize)
+    
+    if path is None:
+        return https_fn.Response("No parameter provided", status=400)
+    else:
+        
+        blob = bucket.blob(path)
+        audio_bytes = blob.download_as_bytes()
+        audio_buffer = io.BytesIO(audio_bytes)
+        y, sr = librosa.load(audio_buffer)
 
-#         return https_fn.Response(note)
-
-def get_wav():
-    return "gs://lightnroll-11.appspot.com/audio/out_1.wav"
-
-def extract_audio_features(audio_path):
-
-    y, sr = librosa.load(audio_path)
+        return sr
+def extract_audio_features(buffer):
+    y, sr = librosa.load(buffer)
 
     return y,sr
 
-def upload_audio_to_firebase(file_path):
+def onset_filter(onset_array):
+    onset_array  = onset_array.tolist()
+    size = len(onset_array)
+    # print(size)
+    for i in range(size-1):
+        # print(i)
+        if onset_array[i]==onset_array[size-1]:
+            break
+        else:
+            diff = onset_array[i+1] - onset_array[i]
+            if diff < 10:
+                avg = (onset_array[i] + onset_array[i+1])/2
+                onset_array.remove(onset_array[i])
+                onset_array.remove(onset_array[i])
+                size -= 1
+                onset_array.insert(i,int(avg))
+    return onset_array
 
-    """Uploads an audio file to Firebase Storage."""
     
+@https_fn.on_request()
+def get_onset_times(req: https_fn.Request) -> https_fn.Response:
+
+    path = req.args.get("path")
+    buffer = get_wav_in_bytes(path)
+    y, sr = extract_audio_features(buffer)
+    o_env = librosa.onset.onset_strength(y=y, sr=sr)
+    times = librosa.times_like(o_env, sr=sr)
+    onset_frames = librosa.onset.onset_detect(onset_envelope=o_env,sr=sr)
+    filtered_onset  = onset_filter(onset_frames)
+    timeList = times[filtered_onset]
+
+    return https_fn.Response(str(timeList))
+
+@https_fn.on_request()
+def upload_audio_to_firebase(file_path):
+    """Uploads an audio file to Firebase Storage."""
+
     destination_blob_name = "gs://lightnroll-11.appspot.com/audio/"
     # Get a reference to the storage bucket
     # bucket = storage.bucket()
-    
+
     # Create a new blob and upload the file's content
     blob = bucket.blob(destination_blob_name)
     blob.upload_from_filename(file_path)
-    
+
     # Make the blob publicly viewable (optional)
     blob.make_public()
 
-    print(f'File {file_path} uploaded to {destination_blob_name}.')
-    print(f'Public URL: {blob.public_url}')
+    print(f"File {file_path} uploaded to {destination_blob_name}.")
+    print(f"Public URL: {blob.public_url}")
 
 
-def get_onset_times(sample_rate,file_path):
-
-    window_size = 1024  # FFT size
-    hop_size = window_size // 4
-    src_func = source(file_path, sample_rate, hop_size)
-    sample_rate = src_func.samplerate
-    onset_func = onset("default", window_size, hop_size)
-
-    duration = float(src_func.duration) / src_func.samplerate
-
-    onset_times = []  # seconds
-    while True:  # read frames
-        samples, num_frames_read = src_func()
-        if onset_func(samples):
-            onset_time = onset_func.get_last_s()
-        if onset_time < duration:
-            onset_times.append(onset_time)
-        else:
-            break
-        if num_frames_read < hop_size:
-            break
-
-    return onset_times
 
 
+
+@https_fn.on_request()
 def trim_audio(intervals, input_file_path, output_file_path="out"):
     # load the audio file
     audio = AudioSegment.from_file(input_file_path)
@@ -149,7 +182,7 @@ def trim_audio(intervals, input_file_path, output_file_path="out"):
         # export the segment to a file
         # segment.export(output_file_path_i, format="wav")
         url = "gs://lightnroll-11.appspot.com/audio/" + output_file_path_i
-    
+
 
 @https_fn.on_request()
 def predict(req: https_fn.Request) -> https_fn.Response:
@@ -158,19 +191,10 @@ def predict(req: https_fn.Request) -> https_fn.Response:
 
     X = np.array(X_test["pitch"]).reshape(1, -1)
 
-    model = pickle.load(open('ann_i_v3.h5','rb'))
+    model = pickle.load(open("ann_i_v3.h5", "rb"))
 
     mapping = ["Am", "Em", "G", "A", "F", "Dm", "C", "D", "E", "B"]
 
     result = model.predict(X)
 
-
-    return jsonify({'chord':str(mapping[int(result)])})
-    
-        
-
-    
-        
-
-
-
+    return jsonify({"chord": str(mapping[int(result)])})
