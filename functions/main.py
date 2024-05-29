@@ -4,6 +4,7 @@
 
 # The Cloud Functions for Firebase SDK to create Cloud Functions and set up triggers.
 
+from math import log2
 import pickle
 import sys
 from aubio import source, onset
@@ -15,7 +16,7 @@ import soundfile as sf
 import io
 import json
 from firebase_functions import firestore_fn, https_fn
-
+import audiosegment
 # The Firebase Admin SDK to access Cloud Firestore.
 from firebase_admin import initialize_app, firestore
 import google.cloud.firestore
@@ -116,9 +117,7 @@ def extract_audio_features(buffer):
 def onset_filter(onset_array):
     onset_array  = onset_array.tolist()
     size = len(onset_array)
-    # print(size)
     for i in range(size-1):
-        # print(i)
         if onset_array[i]==onset_array[size-1]:
             break
         else:
@@ -132,19 +131,32 @@ def onset_filter(onset_array):
     return onset_array
 
     
-@https_fn.on_request()
-def get_onset_times(req: https_fn.Request) -> https_fn.Response:
+# @https_fn.on_request()
+def get_onset_times(y,sr):
 
-    path = req.args.get("path")
-    buffer = get_wav_in_bytes(path)
-    y, sr = extract_audio_features(buffer)
     o_env = librosa.onset.onset_strength(y=y, sr=sr)
     times = librosa.times_like(o_env, sr=sr)
     onset_frames = librosa.onset.onset_detect(onset_envelope=o_env,sr=sr)
     filtered_onset  = onset_filter(onset_frames)
     timeList = times[filtered_onset]
 
-    return https_fn.Response(str(timeList))
+    return timeList
+
+def trim_audio(y,sr,cut_points, output_file_path="output"):
+    # load the audio file
+    audio = audiosegment.from_numpy_array(y,sr)
+    cut_duration = 1 * 1000
+    # iterate over the list of time intervals
+    for i, cut_points in enumerate(cut_points):
+        start_time = int(cut_points * 1000)
+        end_time = start_time + cut_duration
+        end_time = min(end_time,len(audio))
+        chunk  = audio[start_time:end_time]
+        # construct the output file path
+        output_file_path_i = f"{output_file_path}_{i}.wav"
+        # export the segment to a file
+        chunk.export(output_file_path_i, format="wav")
+        # url = "gs://lightnroll-11.appspot.com/audio/" + output_file_path_i
 
 @https_fn.on_request()
 def upload_audio_to_firebase(file_path):
@@ -164,24 +176,45 @@ def upload_audio_to_firebase(file_path):
     print(f"File {file_path} uploaded to {destination_blob_name}.")
     print(f"Public URL: {blob.public_url}")
 
+def pcp(audio_path, fref=261.63):
 
+    y, sr = librosa.load(audio_path)
+    fft_val = np.fft.fft(y)
 
+    N = len(fft_val)
 
+    def M(l, fs, fref):
+        if l == 0:
+            return -1
+        return round(12 * log2((fs * l) / (N * fref))) % 12
+
+    pcp = [0 for p in range(12)]
+    for p in range(12):
+        for l in range((N // 2) - 1):
+            temp = M(l, fs=sr, fref=fref)
+
+            if p == temp:
+                h = abs(fft_val[l]) ** 2 
+                pcp[p] += h
+
+    pcp_norm = [0 for p in range(12)]
+    for p in range(12):
+        pcp_norm[p] = pcp[p] / sum(pcp)
+
+    return list(pcp_norm)
 
 @https_fn.on_request()
-def trim_audio(intervals, input_file_path, output_file_path="out"):
-    # load the audio file
-    audio = AudioSegment.from_file(input_file_path)
+def main(req: https_fn.Request) -> https_fn.Response:
 
-    # iterate over the list of time intervals
-    for i, (start_time, end_time) in enumerate(intervals):
-        # extract the segment of the audio
-        segment = audio[start_time * 1000 : end_time * 1000]
-        # construct the output file path
-        output_file_path_i = f"{output_file_path}_{i}.wav"
-        # export the segment to a file
-        # segment.export(output_file_path_i, format="wav")
-        url = "gs://lightnroll-11.appspot.com/audio/" + output_file_path_i
+    path = req.args.get("path")
+    buffer = get_wav_in_bytes(path)
+    y, sr = extract_audio_features(buffer)
+    cut_points = get_onset_times(y=y,sr=sr,path=path)
+    trim_audio(y,sr,cut_points, output_file_path="out")
+
+
+    return https_fn.Response("done")
+
 
 
 @https_fn.on_request()

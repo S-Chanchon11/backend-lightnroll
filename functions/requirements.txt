@@ -4,3 +4,4 @@ aubio
 numpy
 pydub
 black
+audiosegment

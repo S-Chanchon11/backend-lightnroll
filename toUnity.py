@@ -14,7 +14,7 @@ import librosa
 import numpy as np
 
 
-def pcp(audio_path, fref):
+def pcp(audio_path, fref=261.63):
 
     y, sr = librosa.load(audio_path)
     fft_val = np.fft.fft(y)
@@ -45,7 +45,7 @@ def model_predict(arr):
     
     X = np.array(arr).reshape(1, -1)
     
-    model = pickle.load(open('ann_i_v3.h5','rb'))
+    model = pickle.load(open('functions/ann_i_v3.h5','rb'))
 
     mapping = ["Am", "Em", "G", "A", "F", "Dm", "C", "D", "E", "B"]
 
@@ -56,10 +56,11 @@ def model_predict(arr):
 
 def main():
 
-    data = pcp()
-
+    data = pcp(audio_path='functions\out_8.wav',fref=261.63)
+    print(data)
     result = model_predict(data)
 
+    print(result)
 
 if __name__ == '__main__':
     main()
