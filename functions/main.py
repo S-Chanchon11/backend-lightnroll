@@ -49,9 +49,10 @@ To deploy local
 
 http://127.0.0.1:5001/lightnroll-11/us-central1/main?path=audio/G_E_1.wav
 """
-
+# cs = storage.storage
 ref = db.reference("/all-chords")
 getData = ref.get()
+rt_ref = db.reference("/")
 audio_feature_ref = db.reference("/audio_feature")
 ml_ref = db.reference("/ml_predict")
 # db_firestore = firestore.Client()
@@ -75,146 +76,8 @@ def read_firestore(req: https_fn.Request):
         print(f"{doc.id} => {doc.to_dict()}")
     # ref = db.reference("/all-chords")
     return "done"
-
-
-def write_to_firestore(json_data):
-    
-    jsonObj = {
-        "uuid" : "19e7Ml7rNIXvJbl0QgIpNoyftUZ2",
-        "prediction" : str(json_data)
-    }
-
-    send_data = firestore_client.collection("prediction").document("a11")
-    send_data.set(jsonObj)
-    
-
-def getAudioFeature_collection():
-    
-    # Fetch all users data
-    users_data = audio_feature_ref.get()
-
-    # Iterate through users to find the specific userId
-    for user in users_data:
-        if user['uuid'] == '19e7Ml7rNIXvJbl0QgIpNoyftUZ2':
-            return user
-
-def getAudioFeature(data):
-    # get_audio_feature = audio_feature_ref.get()
-    y = data["y"]
-    sr = data["sr"]
-    # ref = db.reference("/all-chords")
-    return y,sr
-# @https_fn.on_request()
-# def get_wav(req: https_fn.Request):
-
-def get_wav_in_bytes(path):
-    # http://127.0.0.1:5001/lightnroll-11/us-central1/get_wav?path=audio/out_1.wav
-    # path = req.args.get("path")
-    np.set_printoptions(threshold=sys.maxsize)
-    
-    if path is None:
-        return https_fn.Response("No parameter provided", status=400)
-    else:
-        
-        blob = bucket.blob(path)
-        audio_bytes = blob.download_as_bytes()
-        audio_buffer = io.BytesIO(audio_bytes)
-
-        return audio_buffer
-    
-# def get_wav_y(path):
-#     # http://127.0.0.1:5001/lightnroll-11/us-central1/get_wav?path=audio/out_1.wav
-#     # path = req.args.get("path")
-#     np.set_printoptions(threshold=sys.maxsize)
-    
-#     if path is None:
-#         return https_fn.Response("No parameter provided", status=400)
-#     else:
-        
-#         blob = bucket.blob(path)
-#         audio_bytes = blob.download_as_bytes()
-#         audio_buffer = io.BytesIO(audio_bytes)
-#         y, sr = librosa.load(audio_buffer)
-
-#         return y
-# def get_wav_sr(path):
-#     # http://127.0.0.1:5001/lightnroll-11/us-central1/get_wav?path=audio/out_1.wav
-#     # path = req.args.get("path")
-#     np.set_printoptions(threshold=sys.maxsize)
-    
-#     if path is None:
-#         return https_fn.Response("No parameter provided", status=400)
-#     else:
-        
-#         blob = bucket.blob(path)
-#         audio_bytes = blob.download_as_bytes()
-#         audio_buffer = io.BytesIO(audio_bytes)
-#         y, sr = librosa.load(audio_buffer)
-
-#         return sr
-def extract_audio_features(buffer):
-    y, sr = librosa.load(buffer)
-    # y, sr = sf.read(buffer)
-
-    return y,sr
-
-# def get_audio_feat():
-
-#     get_new_ref = new_ref.get("sr")
-#     # ref = db.reference("/all-chords")
-#     return get_new_ref
-
-def onset_filter(onset_array):
-    onset_array  = onset_array.tolist()
-    size = len(onset_array)
-    for i in range(size-1):
-        if onset_array[i]==onset_array[size-1]:
-            break
-        else:
-            diff = onset_array[i+1] - onset_array[i]
-            if diff < 10:
-                avg = (onset_array[i] + onset_array[i+1])/2
-                onset_array.remove(onset_array[i])
-                onset_array.remove(onset_array[i])
-                size -= 1
-                onset_array.insert(i,int(avg))
-    return onset_array
-
-    
-# @https_fn.on_request()
-def get_onset_times(y,sr):
-    
-    o_env = librosa.onset.onset_strength(y=y, sr=sr)
-    times = librosa.times_like(o_env, sr=sr)
-    onset_frames = librosa.onset.onset_detect(onset_envelope=o_env,sr=sr)
-    filtered_onset  = onset_filter(onset_frames)
-    timeList = times[filtered_onset]
-
-    return timeList
-
-def trim_audio(y,sr,cut_points):
-    # load the audio file
-    audio = audiosegment.from_numpy_array(y,sr)
-    cut_duration = 1 * 1000
-    time_series = []
-    # iterate over the list of time intervals
-    for i, cut_points in enumerate(cut_points):
-        start_time = int(cut_points * 1000)
-        end_time = start_time + cut_duration
-        end_time = min(end_time,len(audio))
-        chunk  = audio[start_time:end_time]
-        _sample_rate = chunk.frame_rate
-        time_series.append(chunk.to_numpy_array())
-        # sample_rates = [segment.frame_rate for segment in trimmed]
-        # construct the output file path
-    
-    return time_series, _sample_rate
-        # output_file_path_i = f"{output_file_path}_{i}.wav"
-        # export the segment to a file
-        # chunk.export(output_file_path_i, format="wav")
-        # url = "gs://lightnroll-11.appspot.com/audio/" + output_file_path_i
 @https_fn.on_request()
-def write_audio_to_realtimeDB(req: https_fn.Request) -> https_fn.Response:
+def write(req: https_fn.Request):
 
     y = [
     0.0155944824,
@@ -4359,9 +4222,161 @@ def write_audio_to_realtimeDB(req: https_fn.Request) -> https_fn.Response:
              }     
         ]
     }
-    audio_feature_ref.set(jsonobj)
+    rt_ref.set(jsonobj)
     # ref = db.reference("/all-chords")
     return https_fn.Response("UPLOAD DONE")
+
+def load_model():
+    # storage_client = storage.Client()
+    bucket = storage.bucket()
+    blob = bucket.blob("ann_i_v3.h5")
+    
+    # Download the model file into an in-memory bytes buffer
+    model_bytes = blob.download_as_bytes()
+    
+    # Load the model using pickle
+    model = pickle.loads(model_bytes)
+    
+    return model
+
+def write_to_firestore(json_data):
+    
+    jsonObj = {
+        "uuid" : "19e7Ml7rNIXvJbl0QgIpNoyftUZ2",
+        "prediction" : str(json_data)
+    }
+
+    send_data = firestore_client.collection("prediction").document("a11")
+    send_data.set(jsonObj)
+    
+
+def getAudioFeature_collection():
+    
+    # Fetch all users data
+    users_data = audio_feature_ref.get()
+
+    # Iterate through users to find the specific userId
+    for user in users_data:
+        # print(user)
+        if user['uuid'] == "19e7Ml7rNIXvJbl0QgIpNoyftUZ2":
+            return user
+
+def getAudioFeature(data):
+    # get_audio_feature = audio_feature_ref.get()
+    y = data["y"]
+    sr = data["sr"]
+    # ref = db.reference("/all-chords")
+    return y,sr
+# @https_fn.on_request()
+# def get_wav(req: https_fn.Request):
+
+def get_wav_in_bytes(path):
+    # http://127.0.0.1:5001/lightnroll-11/us-central1/get_wav?path=audio/out_1.wav
+    # path = req.args.get("path")
+    np.set_printoptions(threshold=sys.maxsize)
+    
+    if path is None:
+        return https_fn.Response("No parameter provided", status=400)
+    else:
+        
+        blob = bucket.blob(path)
+        audio_bytes = blob.download_as_bytes()
+        audio_buffer = io.BytesIO(audio_bytes)
+
+        return audio_buffer
+    
+# def get_wav_y(path):
+#     # http://127.0.0.1:5001/lightnroll-11/us-central1/get_wav?path=audio/out_1.wav
+#     # path = req.args.get("path")
+#     np.set_printoptions(threshold=sys.maxsize)
+    
+#     if path is None:
+#         return https_fn.Response("No parameter provided", status=400)
+#     else:
+        
+#         blob = bucket.blob(path)
+#         audio_bytes = blob.download_as_bytes()
+#         audio_buffer = io.BytesIO(audio_bytes)
+#         y, sr = librosa.load(audio_buffer)
+
+#         return y
+# def get_wav_sr(path):
+#     # http://127.0.0.1:5001/lightnroll-11/us-central1/get_wav?path=audio/out_1.wav
+#     # path = req.args.get("path")
+#     np.set_printoptions(threshold=sys.maxsize)
+    
+#     if path is None:
+#         return https_fn.Response("No parameter provided", status=400)
+#     else:
+        
+#         blob = bucket.blob(path)
+#         audio_bytes = blob.download_as_bytes()
+#         audio_buffer = io.BytesIO(audio_bytes)
+#         y, sr = librosa.load(audio_buffer)
+
+#         return sr
+def extract_audio_features(buffer):
+    y, sr = librosa.load(buffer)
+    # y, sr = sf.read(buffer)
+
+    return y,sr
+
+# def get_audio_feat():
+
+#     get_new_ref = new_ref.get("sr")
+#     # ref = db.reference("/all-chords")
+#     return get_new_ref
+
+def onset_filter(onset_array):
+    onset_array  = onset_array.tolist()
+    size = len(onset_array)
+    for i in range(size-1):
+        if onset_array[i]==onset_array[size-1]:
+            break
+        else:
+            diff = onset_array[i+1] - onset_array[i]
+            if diff < 10:
+                avg = (onset_array[i] + onset_array[i+1])/2
+                onset_array.remove(onset_array[i])
+                onset_array.remove(onset_array[i])
+                size -= 1
+                onset_array.insert(i,int(avg))
+    return onset_array
+
+    
+# @https_fn.on_request()
+def get_onset_times(y,sr):
+    
+    o_env = librosa.onset.onset_strength(y=y, sr=sr)
+    times = librosa.times_like(o_env, sr=sr)
+    onset_frames = librosa.onset.onset_detect(onset_envelope=o_env,sr=sr)
+    filtered_onset  = onset_filter(onset_frames)
+    timeList = times[filtered_onset]
+
+    return timeList
+
+def trim_audio(y,sr,cut_points):
+    # load the audio file
+    audio = audiosegment.from_numpy_array(y,sr)
+    cut_duration = 1 * 1000
+    time_series = []
+    # iterate over the list of time intervals
+    for i, cut_points in enumerate(cut_points):
+        start_time = int(cut_points * 1000)
+        end_time = start_time + cut_duration
+        end_time = min(end_time,len(audio))
+        chunk  = audio[start_time:end_time]
+        _sample_rate = chunk.frame_rate
+        time_series.append(chunk.to_numpy_array())
+        # sample_rates = [segment.frame_rate for segment in trimmed]
+        # construct the output file path
+    
+    return time_series, _sample_rate
+        # output_file_path_i = f"{output_file_path}_{i}.wav"
+        # export the segment to a file
+        # chunk.export(output_file_path_i, format="wav")
+        # url = "gs://lightnroll-11.appspot.com/audio/" + output_file_path_i
+
 #     doc = ref.child('C').get()
 
 # def read_from_realtimeDB():
@@ -4388,9 +4403,7 @@ def upload_audio_to_firebase(req: https_fn.Request)-> https_fn.Response:
 def pcp(y,sr, fref=261.63):
 
     fft_val = np.fft.fft(y)
-
     N = len(fft_val)
-
     def M(l, fs, fref):
         if l == 0:
             return -1
@@ -4422,24 +4435,40 @@ def main(req: https_fn.Request) -> https_fn.Response:
     # uuid = req.args.get("id")
     # buffer = get_wav_in_bytes(path)
     # y, sr = extract_audio_features(buffer)
+    # full_y,full_sr = librosa.load("G_E_1.wav")
+    
+    # audio_feature_ref.set({
+    #     "y":str(full_y),
+    #     "sr":str(full_sr),
+    #     "uuid":"19e7Ml7rNIXvJbl0QgIpNoyftUZ2"
+    # })
 
     result = getAudioFeature_collection()
 
     y,sr = getAudioFeature(result)
+
     sr=int(sr)
     y=np.array(y,dtype='float32')
     cut_points = get_onset_times(y=y,sr=sr)
     new_y, new_sr = trim_audio(y,sr,cut_points)
     prediction_result = []
-
+    # model = load_model()
     for i in range(len(new_y)):
         new_pcp = pcp(y=new_y[i],sr=new_sr)
+        # print(new_pcp)
         prediction_result.append(str(predict(data=new_pcp)))
     
+        # new_pcp = pcp(y=new_y[i],sr=new_sr)
+        # new_pcp = np.array(new_pcp).reshape(1,-1)
+        # print(new_pcp[0])
+        # X = np.array(new_pcp).shape(1,-1)
+        # pred = model.predict(new_pcp[0])
+        # prediction_result.append(str(predict(data=new_pcp)))
+        # prediction_result.append(pred)
     # write_to_firestore(json.dumps(jsonObj))
-    write_to_firestore(prediction_result)
+    # write_to_firestore(prediction_result)
 
-    return https_fn.Response("Done")
+    return https_fn.Response(prediction_result)
 
 
 
@@ -4447,7 +4476,6 @@ def main(req: https_fn.Request) -> https_fn.Response:
 
 # @https_fn.on_request()
 def predict(data):
-
 
     X = np.array(data).reshape(1, -1)
 
