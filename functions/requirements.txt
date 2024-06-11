@@ -5,3 +5,4 @@ numpy
 pydub
 black
 audiosegment
+soundfile

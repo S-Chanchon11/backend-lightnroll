@@ -35,7 +35,8 @@ firebase_admin.initialize_app(
      "databaseURL": DB_URL}
 )
 
-# bucket = storage.bucket()
+
+bucket = storage.bucket()
 # storage = firebase
 
 """
@@ -61,6 +62,22 @@ firestore_client: firestore.Client = firestore.client()
 @https_fn.on_request()
 def on_request_example(req: https_fn.Request) -> https_fn.Response:
     return https_fn.Response("Hello world!")
+
+@https_fn.on_request()
+def get_pcp(req: https_fn.Request) -> https_fn.Response:
+    pcp = [0.1,0.2,0.3,0.4,0.5]
+    jsonObj = {
+        "pcp" : pcp
+    }
+    return jsonify(jsonObj)
+
+@https_fn.on_request()
+def get_pcp(req: https_fn.Request) -> https_fn.Response:
+    pcp = [0.1,0.2,0.3,0.4,0.5]
+    jsonObj = {
+        "pcp" : pcp
+    }
+    return jsonify(jsonObj)
 
 @https_fn.on_request()
 def read_database_on_realtime_database(req: https_fn.Request):
@@ -4228,7 +4245,7 @@ def write(req: https_fn.Request):
 
 def load_model():
     # storage_client = storage.Client()
-    bucket = storage.bucket()
+    # bucket = storage.bucket()
     blob = bucket.blob("ann_i_v3.h5")
     
     # Download the model file into an in-memory bytes buffer
@@ -4284,22 +4301,24 @@ def get_wav_in_bytes(path):
         audio_buffer = io.BytesIO(audio_bytes)
 
         return audio_buffer
-    
-# def get_wav_y(path):
-#     # http://127.0.0.1:5001/lightnroll-11/us-central1/get_wav?path=audio/out_1.wav
-#     # path = req.args.get("path")
-#     np.set_printoptions(threshold=sys.maxsize)
-    
-#     if path is None:
-#         return https_fn.Response("No parameter provided", status=400)
-#     else:
-        
-#         blob = bucket.blob(path)
-#         audio_bytes = blob.download_as_bytes()
-#         audio_buffer = io.BytesIO(audio_bytes)
-#         y, sr = librosa.load(audio_buffer)
 
-#         return y
+@https_fn.on_request()
+def get_wav_audio_feature(req: https_fn.Request):
+    # http://127.0.0.1:5001/lightnroll-11/us-central1/get_wav?path=audio/out_1.wav
+    path = req.args.get("path")
+    np.set_printoptions(threshold=sys.maxsize)
+    
+    if path is None:
+        return https_fn.Response("No parameter provided", status=400)
+    else:
+        
+        blob = bucket.blob(path)
+        audio_bytes = blob.download_as_bytes()
+        audio_buffer = io.BytesIO(audio_bytes)
+        y, sr = librosa.load(audio_buffer)
+
+        return sr
+    
 # def get_wav_sr(path):
 #     # http://127.0.0.1:5001/lightnroll-11/us-central1/get_wav?path=audio/out_1.wav
 #     # path = req.args.get("path")
@@ -4355,6 +4374,32 @@ def get_onset_times(y,sr):
 
     return timeList
 
+def onset_and_extract(y,sr):
+    onset_frames = librosa.onset.onset_detect(y=y, sr=sr)
+    onset_times = librosa.frames_to_time(onset_frames, sr=sr)
+
+    # Duration of each segment in seconds
+    segment_duration = 2.0
+    segment_samples = int(segment_duration * sr)
+
+    # List to store segments' audio time series and sample rate
+    segments_info = []
+
+    # Cut the audio segments based on the detected onsets
+    for onset_time in onset_times:
+        start_sample = int(onset_time * sr)
+        end_sample = start_sample + segment_samples
+        segment = y[start_sample:end_sample]
+        
+        # If the segment is shorter than the required duration, pad with zeros (silence)
+        if len(segment) < segment_samples:
+            segment = np.pad(segment, (0, segment_samples - len(segment)), 'constant')
+        # print(segment)
+        # Append the segment info (audio time series and sample rate) to the list
+        segments_info.append(segment)
+    
+    return segments_info
+
 def trim_audio(y,sr,cut_points):
     # load the audio file
     audio = audiosegment.from_numpy_array(y,sr)
@@ -4382,23 +4427,23 @@ def trim_audio(y,sr,cut_points):
 # def read_from_realtimeDB():
 
 
-@https_fn.on_request()
-def upload_audio_to_firebase(req: https_fn.Request)-> https_fn.Response:
-    """Uploads an audio file to Firebase Storage."""
+# @https_fn.on_request()
+# def upload_audio_to_firebase(req: https_fn.Request)-> https_fn.Response:
+#     """Uploads an audio file to Firebase Storage."""
 
-    destination_blob_name = "gs://lightnroll-11.appspot.com/audio/"
-    # Get a reference to the storage bucket
-    # bucket = storage.bucket()
+#     destination_blob_name = "gs://lightnroll-11.appspot.com/audio/"
+#     # Get a reference to the storage bucket
+#     # bucket = storage.bucket()
 
-    # Create a new blob and upload the file's content
-    blob = bucket.blob(destination_blob_name)
-    blob.upload_from_filename()
+#     # Create a new blob and upload the file's content
+#     blob = bucket.blob(destination_blob_name)
+#     blob.upload_from_filename()
 
-    # Make the blob publicly viewable (optional)
-    blob.make_public()
+#     # Make the blob publicly viewable (optional)
+#     blob.make_public()
 
-    print(f"File {file_path} uploaded to {destination_blob_name}.")
-    print(f"Public URL: {blob.public_url}")
+#     print(f"File {file_path} uploaded to {destination_blob_name}.")
+#     print(f"Public URL: {blob.public_url}")
 
 def pcp(y,sr, fref=261.63):
 
@@ -4430,7 +4475,7 @@ def write_audio_to_realtimeDB(result):
     return https_fn.Response("UPLOAD DONE")
 
 @https_fn.on_request()
-def main(req: https_fn.Request) -> https_fn.Response:
+def evaluate(req: https_fn.Request) -> https_fn.Response:
 
     # uuid = req.args.get("id")
     # buffer = get_wav_in_bytes(path)
@@ -4443,21 +4488,27 @@ def main(req: https_fn.Request) -> https_fn.Response:
     #     "uuid":"19e7Ml7rNIXvJbl0QgIpNoyftUZ2"
     # })
 
-    result = getAudioFeature_collection()
+    # result = getAudioFeature_collection()
 
-    y,sr = getAudioFeature(result)
+    # y,sr = getAudioFeature(result)
+    tmp = req.get_json()
+    body_pcp = tmp.get('pcp')
+    # body_sr = tmp.get('sr')
+    print(body_pcp)
+    # print(body_sr)
+    # sr=int(sr)
+    # y=np.array(y,dtype='float32')
+    # # cut_points = get_onset_times(y=y,sr=sr)
+    # # new_y, new_sr = trim_audio(y,sr,cut_points)
+    # new_y = onset_and_extract(y,sr)
 
-    sr=int(sr)
-    y=np.array(y,dtype='float32')
-    cut_points = get_onset_times(y=y,sr=sr)
-    new_y, new_sr = trim_audio(y,sr,cut_points)
     prediction_result = []
     # model = load_model()
-    for i in range(len(new_y)):
-        new_pcp = pcp(y=new_y[i],sr=new_sr)
-        # print(new_pcp)
-        prediction_result.append(str(predict(data=new_pcp)))
-    
+    # for i in range(1):
+    # new_pcp = pcp(y=body_pcp,sr=body_sr)
+    # print(new_pcp)
+    # prediction_result.append(str(predict(data=new_pcp)))
+    result = predict(data=body_pcp)
         # new_pcp = pcp(y=new_y[i],sr=new_sr)
         # new_pcp = np.array(new_pcp).reshape(1,-1)
         # print(new_pcp[0])
@@ -4465,14 +4516,13 @@ def main(req: https_fn.Request) -> https_fn.Response:
         # pred = model.predict(new_pcp[0])
         # prediction_result.append(str(predict(data=new_pcp)))
         # prediction_result.append(pred)
-    # write_to_firestore(json.dumps(jsonObj))
-    # write_to_firestore(prediction_result)
-
-    return https_fn.Response(prediction_result)
-
-
-
-
+    # # write_to_firestore(json.dumps(jsonObj))
+    # # write_to_firestore(prediction_result)
+    foo = {
+        "prediction" : result
+    }
+    # return https_fn.Response(prediction_result)
+    return jsonify(foo)
 
 # @https_fn.on_request()
 def predict(data):
