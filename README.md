@@ -5,3 +5,11 @@
 3. arch -x86_64 pip install *package_name*
 3. arch -arm64 pip install *package_name*
 4. pip freeze
+
+x86_64 list
+-librosa
+-scipy
+-llvmlite
+-soundfile
+-soxr
+-sklearn
